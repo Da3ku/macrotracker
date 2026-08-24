@@ -1,0 +1,1269 @@
+<!DOCTYPE html>
+<html lang="fr-CA">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1">
+<meta name="theme-color" content="#1b1815">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="INTAKE">
+<link rel="manifest" href="manifest.webmanifest">
+<title>INTAKE — nutrient instrument</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,600;12..96,800&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --fs:1;
+  /* lighter dark — raised the floor so text has something to sit on */
+  --bg:#1b1815;
+  --bg-lift:#231f1b;
+  --panel:#272320;
+  --panel-2:#322c27;
+  --line:#443c34;
+  --line-hot:#5c5145;
+  /* text: every tier lifted well above the old contrast floor */
+  --ink:#f7f2ea;
+  --ink-dim:#c3b8a9;
+  --ink-faint:#9a8f81;
+  --amber:#f2b35b;
+  --amber-dim:#b8853a;
+  /* status colours rebalanced for the lighter panel */
+  --deficient:#e0705a;
+  --low:#eda257;
+  --optimal:#9ac97a;
+  --high:#68b0c9;
+  --excess:#d46c8c;
+  --r:4px;
+  --mono:'JetBrains Mono',ui-monospace,monospace;
+  --disp:'Bricolage Grotesque',system-ui,sans-serif;
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html{font-size:calc(16px * var(--fs))}
+html,body{margin:0;padding:0;background:var(--bg);color:var(--ink)}
+body{
+  font-family:var(--disp);
+  font-size:1.06rem;
+  line-height:1.55;
+  overscroll-behavior-y:none;
+  padding-bottom:env(safe-area-inset-bottom);
+  -webkit-font-smoothing:antialiased;
+  text-rendering:optimizeLegibility;
+}
+/* atmosphere kept, but pulled right back — it was eating contrast */
+body::after{
+  content:'';position:fixed;inset:0;pointer-events:none;z-index:9998;
+  background:radial-gradient(ellipse 120% 80% at 50% -10%,rgba(242,179,91,.045),transparent 62%);
+}
+button,input,select{font-family:inherit;font-size:inherit;color:inherit}
+button{background:none;border:none;cursor:pointer;padding:0}
+input,select{
+  background:#151210;border:1px solid var(--line);border-radius:var(--r);
+  padding:11px 12px;color:var(--ink);width:100%;font-size:1rem;
+}
+input::placeholder{color:#7d7364}
+input:focus,select:focus{outline:none;border-color:var(--amber);box-shadow:0 0 0 3px rgba(242,179,91,.14)}
+input[type=number]{font-family:var(--mono)}
+code{font-family:var(--mono);font-size:.92em;color:var(--amber);background:rgba(242,179,91,.09);padding:1px 4px;border-radius:3px}
+
+/* ---------- shell ---------- */
+.wrap{max-width:780px;margin:0 auto;padding:0 15px}
+header.top{
+  position:sticky;top:0;z-index:60;background:rgba(27,24,21,.95);
+  backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);
+  border-bottom:1px solid var(--line);
+  padding-top:env(safe-area-inset-top);
+}
+.brandrow{display:flex;align-items:center;gap:11px;height:56px}
+.mark{
+  width:24px;height:24px;border:1.5px solid var(--amber);border-radius:50%;
+  display:grid;place-items:center;flex:0 0 auto;position:relative;
+}
+.mark::after{content:'';width:8px;height:8px;background:var(--amber);border-radius:50%;
+  box-shadow:0 0 10px var(--amber);animation:pulse 3.4s ease-in-out infinite}
+@keyframes pulse{0%,100%{opacity:.6;transform:scale(.85)}50%{opacity:1;transform:scale(1.1)}}
+.brand{font-weight:800;letter-spacing:.2em;font-size:.88rem;text-transform:uppercase}
+.brand small{color:var(--ink-faint);letter-spacing:.1em;font-weight:400;margin-left:7px;font-size:.66rem}
+.netdot{margin-left:auto;font-family:var(--mono);font-size:.66rem;color:var(--ink-faint);letter-spacing:.08em}
+
+nav.tabs{display:flex;gap:0;border-top:1px solid var(--line)}
+nav.tabs button{
+  flex:1;padding:13px 4px 14px;font-size:.75rem;letter-spacing:.13em;text-transform:uppercase;
+  color:var(--ink-dim);font-weight:600;border-bottom:2px solid transparent;transition:.16s;
+}
+nav.tabs button:hover{color:var(--ink)}
+nav.tabs button[aria-selected=true]{color:var(--amber);border-bottom-color:var(--amber)}
+
+main{padding:20px 0 130px;animation:fade .3s ease}
+@keyframes fade{from{opacity:0;transform:translateY(5px)}to{opacity:1;transform:none}}
+.view{display:none}.view.on{display:block}
+
+/* ---------- panels ---------- */
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:var(--r);margin-bottom:13px}
+.panel-h{
+  display:flex;align-items:center;gap:9px;padding:11px 14px;border-bottom:1px solid var(--line);
+  font-size:.72rem;letter-spacing:.16em;text-transform:uppercase;color:var(--ink-dim);font-weight:600;
+}
+.panel-h .rule{flex:1;height:1px;background:var(--line)}
+.panel-b{padding:14px}
+
+/* ---------- date nav ---------- */
+.datebar{display:flex;align-items:center;gap:11px;margin-bottom:15px}
+.datebar button.arw{
+  width:42px;height:42px;border:1px solid var(--line);border-radius:var(--r);
+  display:grid;place-items:center;color:var(--ink-dim);font-family:var(--mono);transition:.15s;font-size:.8rem;
+}
+.datebar button.arw:hover{border-color:var(--line-hot);color:var(--ink);background:var(--panel)}
+.datelabel{flex:1;text-align:center}
+.datelabel b{display:block;font-size:1.2rem;font-weight:600;letter-spacing:-.01em}
+.datelabel span{font-family:var(--mono);font-size:.72rem;color:var(--ink-faint);letter-spacing:.1em}
+
+/* ---------- energy header ---------- */
+.energy{display:grid;grid-template-columns:auto 1fr;gap:18px;align-items:center}
+.ring{position:relative;width:96px;height:96px;flex:0 0 auto}
+.ring svg{transform:rotate(-90deg)}
+.ring .val{position:absolute;inset:0;display:grid;place-content:center;text-align:center;font-family:var(--mono)}
+.ring .val b{display:block;font-size:1.35rem;font-weight:700;letter-spacing:-.03em}
+.ring .val i{display:block;font-style:normal;font-size:.62rem;color:var(--ink-faint);letter-spacing:.12em}
+.macros{display:grid;gap:11px}
+.macro{display:grid;grid-template-columns:40px 1fr auto;gap:11px;align-items:center;font-family:var(--mono);font-size:.8rem}
+.macro .k{color:var(--ink-dim);letter-spacing:.06em;font-weight:500}
+.macro .v{color:var(--ink-faint);font-size:.78rem;white-space:nowrap}
+.macro .v b{color:var(--ink);font-weight:500}
+.track{height:7px;background:#141110;border-radius:99px;overflow:hidden;position:relative}
+.track i{display:block;height:100%;border-radius:99px;transition:width .5s cubic-bezier(.2,.8,.2,1)}
+
+/* ---------- meals ---------- */
+.meal-h{
+  display:flex;align-items:baseline;gap:9px;padding:13px 14px 7px;
+  font-size:.74rem;letter-spacing:.16em;text-transform:uppercase;color:var(--ink-dim);font-weight:700;
+}
+.meal-h em{font-style:normal;font-family:var(--mono);color:var(--ink-faint);letter-spacing:.04em;font-size:.74rem}
+.meal-h .rule{flex:1;height:1px;background:var(--line)}
+.entry{
+  display:grid;grid-template-columns:1fr auto auto;gap:11px;align-items:center;
+  padding:11px 14px;border-top:1px solid var(--line);
+}
+.entry:first-of-type{border-top:none}
+.entry .nm{min-width:0}
+.entry .nm b{display:block;font-weight:500;font-size:1rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;line-height:1.35}
+.entry .nm span{font-family:var(--mono);font-size:.74rem;color:var(--ink-faint)}
+.entry .kc{font-family:var(--mono);font-size:.88rem;color:var(--amber);white-space:nowrap;font-weight:500}
+.entry .x{width:32px;height:32px;color:var(--ink-faint);font-family:var(--mono);font-size:1.1rem;border-radius:var(--r)}
+.entry .x:hover{color:var(--deficient);background:var(--panel-2)}
+.addbtn{
+  display:block;width:100%;padding:11px;border-top:1px dashed var(--line);
+  font-family:var(--mono);font-size:.75rem;color:var(--ink-faint);letter-spacing:.08em;transition:.15s;
+}
+.addbtn:hover{color:var(--amber);background:var(--panel-2)}
+
+/* ---------- nutrient table ---------- */
+.grp-h{
+  display:flex;align-items:center;gap:9px;padding:15px 14px 8px;
+  font-size:.7rem;letter-spacing:.18em;text-transform:uppercase;color:var(--amber);font-weight:700;
+}
+.grp-h .rule{flex:1;height:1px;background:var(--line)}
+.nut{
+  display:grid;grid-template-columns:1fr 78px 74px;gap:12px;align-items:center;
+  padding:9px 14px;border-top:1px solid rgba(68,60,52,.6);
+}
+.nut:hover{background:var(--panel-2)}
+.nut .lbl{font-size:.94rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;line-height:1.35}
+.nut .lbl s{text-decoration:none;color:var(--low);font-family:var(--mono);font-size:.68rem;margin-left:6px}
+.nut .amt{font-family:var(--mono);font-size:.8rem;color:var(--ink-faint);text-align:right;white-space:nowrap}
+.nut .amt b{color:var(--ink);font-weight:500;font-size:.86rem}
+.nut .bar{position:relative}
+.nut .bar .track{height:6px}
+.pct{position:absolute;right:0;top:-14px;font-family:var(--mono);font-size:.66rem;color:var(--ink-dim);letter-spacing:.02em}
+.sparse{opacity:.62}
+
+/* ---------- search / results ---------- */
+.seg{display:flex;border:1px solid var(--line);border-radius:var(--r);overflow:hidden;margin-bottom:14px}
+.seg button{
+  flex:1;padding:11px 4px;font-size:.75rem;letter-spacing:.12em;text-transform:uppercase;
+  color:var(--ink-dim);font-weight:600;transition:.15s;border-right:1px solid var(--line);
+}
+.seg button:last-child{border-right:none}
+.seg button:hover{background:var(--panel)}
+.seg button[aria-selected=true]{background:var(--amber);color:#1a1410}
+.pane{display:none}.pane.on{display:block}
+
+.res{
+  display:grid;grid-template-columns:1fr auto;gap:11px;align-items:center;
+  padding:12px 14px;border-top:1px solid var(--line);cursor:pointer;transition:.13s;
+}
+.res:hover{background:var(--panel-2)}
+.res .nm b{display:block;font-weight:500;font-size:1rem;line-height:1.35}
+.res .nm span{font-family:var(--mono);font-size:.74rem;color:var(--ink-faint)}
+.tag{
+  font-family:var(--mono);font-size:.66rem;letter-spacing:.09em;padding:3px 7px;border-radius:3px;
+  border:1px solid var(--line-hot);color:var(--ink-dim);text-transform:uppercase;
+}
+.tag.off{color:var(--optimal);border-color:rgba(154,201,122,.45)}
+.tag.usda{color:var(--high);border-color:rgba(104,176,201,.45)}
+.tag.custom{color:var(--amber);border-color:var(--amber-dim)}
+.tag.cache{color:var(--ink-dim)}
+
+.hint{font-family:var(--mono);font-size:.78rem;color:var(--ink-faint);line-height:1.75;letter-spacing:.01em}
+.hint b{color:var(--ink-dim)}
+.empty{padding:30px 16px;text-align:center}
+.empty p{margin:0 0 6px;color:var(--ink-dim);font-size:1rem}
+
+/* ---------- scanner ---------- */
+#scanwrap{position:relative;background:#000;border-radius:var(--r);overflow:hidden;aspect-ratio:4/3}
+#scanvid{width:100%;height:100%;object-fit:cover;display:block}
+.retic{position:absolute;inset:0;pointer-events:none;display:grid;place-items:center}
+.retic i{
+  width:74%;height:40%;border:2px solid rgba(242,179,91,.9);border-radius:5px;
+  box-shadow:0 0 0 2000px rgba(0,0,0,.4);position:relative;
+}
+.retic i::after{
+  content:'';position:absolute;left:0;right:0;height:2px;background:var(--amber);
+  box-shadow:0 0 11px var(--amber);animation:sweep 2.1s ease-in-out infinite;
+}
+@keyframes sweep{0%,100%{top:6%}50%{top:94%}}
+
+/* ---------- buttons ---------- */
+.btn{
+  display:block;width:100%;padding:13px;border-radius:var(--r);text-align:center;
+  font-size:.8rem;letter-spacing:.13em;text-transform:uppercase;font-weight:700;transition:.15s;
+}
+.btn.pri{background:var(--amber);color:#1a1410}
+.btn.pri:hover{background:#f8c377}
+.btn.sec{border:1px solid var(--line-hot);color:var(--ink-dim)}
+.btn.sec:hover{border-color:var(--amber);color:var(--amber);background:var(--panel)}
+.btn.dgr{border:1px solid rgba(224,112,90,.45);color:var(--deficient)}
+.btn.dgr:hover{background:rgba(224,112,90,.12)}
+.btnrow{display:grid;grid-template-columns:1fr 1fr;gap:9px}
+
+/* ---------- sheet ---------- */
+.scrim{
+  position:fixed;inset:0;background:rgba(10,8,7,.7);z-index:100;
+  backdrop-filter:blur(3px);-webkit-backdrop-filter:blur(3px);
+  opacity:0;pointer-events:none;transition:.22s;
+}
+.scrim.on{opacity:1;pointer-events:auto}
+.sheet{
+  position:fixed;left:0;right:0;bottom:0;z-index:101;max-height:88vh;overflow-y:auto;
+  background:var(--bg-lift);border-top:1px solid var(--line-hot);
+  border-radius:14px 14px 0 0;transform:translateY(101%);transition:transform .3s cubic-bezier(.22,1,.3,1);
+  padding-bottom:calc(22px + env(safe-area-inset-bottom));
+  -webkit-overflow-scrolling:touch;
+}
+.sheet.on{transform:none}
+.sheet-in{max-width:780px;margin:0 auto;padding:0 17px}
+.grab{width:38px;height:4px;background:var(--line-hot);border-radius:99px;margin:10px auto 16px}
+
+.fld{margin-bottom:13px}
+.fld label{
+  display:block;font-size:.72rem;letter-spacing:.14em;text-transform:uppercase;
+  color:var(--ink-dim);margin-bottom:6px;font-weight:600;
+}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.three{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px}
+
+.chips{display:flex;flex-wrap:wrap;gap:7px}
+.chip{
+  padding:8px 13px;border:1px solid var(--line);border-radius:99px;
+  font-family:var(--mono);font-size:.78rem;color:var(--ink-dim);transition:.14s;
+}
+.chip:hover{border-color:var(--line-hot);color:var(--ink)}
+.chip[aria-pressed=true]{background:var(--amber);color:#1a1410;border-color:var(--amber);font-weight:500}
+
+.toast{
+  position:fixed;left:50%;bottom:28px;transform:translate(-50%,90px);z-index:200;
+  background:var(--panel-2);border:1px solid var(--line-hot);border-radius:var(--r);
+  padding:12px 18px;font-family:var(--mono);font-size:.82rem;transition:.28s cubic-bezier(.22,1,.3,1);
+  max-width:90vw;text-align:center;box-shadow:0 12px 34px rgba(0,0,0,.5);color:var(--ink);
+}
+.toast.on{transform:translate(-50%,0)}
+.toast.err{border-color:rgba(224,112,90,.6);color:#f0a08c}
+
+.spin{display:inline-block;width:12px;height:12px;border:2px solid var(--line-hot);
+  border-top-color:var(--amber);border-radius:50%;animation:sp .7s linear infinite;vertical-align:-2px}
+@keyframes sp{to{transform:rotate(360deg)}}
+
+.kv{display:flex;justify-content:space-between;gap:13px;padding:9px 0;border-top:1px solid var(--line);font-family:var(--mono);font-size:.82rem;color:var(--ink-faint)}
+.kv:first-child{border-top:none}
+.kv b{color:var(--ink);font-weight:500}
+
+/* ---------- legend ---------- */
+.legend{display:flex;flex-wrap:wrap;gap:11px;padding:12px 14px;border-top:1px solid var(--line)}
+.legend span{display:flex;align-items:center;gap:6px;font-family:var(--mono);font-size:.7rem;color:var(--ink-faint)}
+.legend i{width:12px;height:6px;border-radius:99px;display:block}
+</style>
+</head>
+<body>
+
+<header class="top">
+  <div class="wrap">
+    <div class="brandrow">
+      <div class="mark"></div>
+      <div class="brand">Intake<small>v1.0</small></div>
+      <div class="netdot" id="netdot">LOCAL</div>
+    </div>
+  </div>
+  <nav class="tabs wrap" role="tablist">
+    <button role="tab" aria-selected="true" data-view="today">Today</button>
+    <button role="tab" aria-selected="false" data-view="add">Add</button>
+    <button role="tab" aria-selected="false" data-view="foods">Foods</button>
+    <button role="tab" aria-selected="false" data-view="conf">Config</button>
+  </nav>
+</header>
+
+<main class="wrap">
+
+  <!-- ============ TODAY ============ -->
+  <section class="view on" id="v-today">
+    <div class="datebar">
+      <button class="arw" id="dprev">&#9664;</button>
+      <div class="datelabel"><b id="dlabel">—</b><span id="dsub">—</span></div>
+      <button class="arw" id="dnext">&#9654;</button>
+    </div>
+
+    <div class="panel">
+      <div class="panel-h">Energy balance<i class="rule"></i><span id="ebal">—</span></div>
+      <div class="panel-b">
+        <div class="energy">
+          <div class="ring">
+            <svg width="88" height="88" viewBox="0 0 88 88">
+              <circle cx="44" cy="44" r="37" fill="none" stroke="#141110" stroke-width="7"/>
+              <circle id="ringarc" cx="44" cy="44" r="37" fill="none" stroke="#f2b35b" stroke-width="7"
+                      stroke-linecap="round" stroke-dasharray="232.5" stroke-dashoffset="232.5"
+                      style="transition:stroke-dashoffset .6s cubic-bezier(.2,.8,.2,1),stroke .3s"/>
+            </svg>
+            <div class="val"><b id="rkcal">0</b><i>KCAL</i></div>
+          </div>
+          <div class="macros" id="macros"></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="panel" id="mealpanel"></div>
+
+    <div class="panel">
+      <div class="panel-h">Nutrient readout<i class="rule"></i><span id="nutmeta">—</span></div>
+      <div id="nuttable"></div>
+    </div>
+  </section>
+
+  <!-- ============ ADD ============ -->
+  <section class="view" id="v-add">
+    <div class="seg" role="tablist">
+      <button role="tab" aria-selected="true" data-pane="search">Search</button>
+      <button role="tab" aria-selected="false" data-pane="scan">Scan</button>
+      <button role="tab" aria-selected="false" data-pane="manual">Manual</button>
+    </div>
+
+    <div class="pane on" id="p-search">
+      <div class="fld">
+        <input id="q" placeholder="poulet, greek yogurt, avoine…" autocomplete="off" enterkeyhint="search">
+      </div>
+      <div class="hint" id="qhint">Your cached foods are searched instantly. Remote lookup fires 700&nbsp;ms after you stop typing — Open&nbsp;Food&nbsp;Facts caps search at 10&nbsp;req/min.</div>
+      <div class="panel" id="results" style="margin-top:12px;display:none"></div>
+    </div>
+
+    <div class="pane" id="p-scan">
+      <div id="scanwrap" style="display:none">
+        <video id="scanvid" playsinline muted autoplay></video>
+        <div class="retic"><i></i></div>
+      </div>
+      <div id="scanidle" class="panel"><div class="panel-b">
+        <p class="hint" style="margin:0 0 12px">Camera needs HTTPS (GitHub&nbsp;Pages is fine) and a permission grant. Safari lacks the native <code>BarcodeDetector</code>, so ZXing is loaded as fallback.</p>
+        <button class="btn pri" id="scanstart">Start camera</button>
+      </div></div>
+      <div style="margin-top:9px" id="scanctl"></div>
+      <div class="panel" style="margin-top:12px">
+        <div class="panel-h">Manual barcode<i class="rule"></i></div>
+        <div class="panel-b">
+          <div class="two">
+            <input id="bcode" placeholder="0 62639 33019 8" inputmode="numeric" autocomplete="off">
+            <button class="btn sec" id="bgo">Look up</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="pane" id="p-manual">
+      <div class="panel"><div class="panel-b">
+        <p class="hint" style="margin:0 0 13px">Values per 100&nbsp;g. Leave anything blank you don't know — blanks stay blank rather than counting as zero.</p>
+        <div class="fld"><label>Name</label><input id="m-name" placeholder="Shake post-workout"></div>
+        <div class="two">
+          <div class="fld"><label>Brand</label><input id="m-brand" placeholder="—"></div>
+          <div class="fld"><label>Serving (g)</label><input id="m-serv" type="number" placeholder="100"></div>
+        </div>
+        <div id="m-fields"></div>
+        <button class="btn pri" id="m-save" style="margin-top:12px">Save to library</button>
+      </div></div>
+    </div>
+  </section>
+
+  <!-- ============ FOODS ============ -->
+  <section class="view" id="v-foods">
+    <div class="fld"><input id="fq" placeholder="Filter library…" autocomplete="off"></div>
+    <div class="panel" id="foodlist"></div>
+  </section>
+
+  <!-- ============ CONFIG ============ -->
+  <section class="view" id="v-conf">
+    <div class="panel">
+      <div class="panel-h">Display<i class="rule"></i></div>
+      <div class="panel-b">
+        <div class="fld" style="margin-bottom:0">
+          <label>Text size</label>
+          <div class="chips" id="fschips">
+            <button class="chip" data-fs="1">Default</button>
+            <button class="chip" data-fs="1.12">Larger</button>
+            <button class="chip" data-fs="1.25">Large</button>
+            <button class="chip" data-fs="1.4">Largest</button>
+          </div>
+        </div>
+        <p class="hint" style="margin:11px 0 0">Scales every text size in the app together, so nothing breaks its layout. Saved with your settings.</p>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-h">Energy &amp; macro targets<i class="rule"></i></div>
+      <div class="panel-b">
+        <div class="two">
+          <div class="fld"><label>Energy (kcal)</label><input id="t-kcal" type="number"></div>
+          <div class="fld"><label>Protein (g)</label><input id="t-protein" type="number"></div>
+        </div>
+        <div class="three">
+          <div class="fld"><label>Carbs (g)</label><input id="t-carbs" type="number"></div>
+          <div class="fld"><label>Fat (g)</label><input id="t-fat" type="number"></div>
+          <div class="fld"><label>Fibre (g)</label><input id="t-fiber" type="number"></div>
+        </div>
+        <p class="hint" style="margin:2px 0 0">Micronutrient targets default to Health Canada / IOM DRI values for males 19–30. Override any of them below.</p>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-h">Micronutrient targets<i class="rule"></i><button class="tag" id="resetdri">Reset to DRI</button></div>
+      <div class="panel-b" id="microtargets"></div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-h">USDA FoodData Central<i class="rule"></i></div>
+      <div class="panel-b">
+        <div class="fld"><label>API key</label><input id="usdakey" placeholder="DEMO_KEY" autocomplete="off"></div>
+        <p class="hint" style="margin:0">Free key at <b>fdc.nal.usda.gov/api-key-signup</b>. Open Food Facts covers barcodes and packaged goods; USDA covers whole foods (chicken breast, oats, rice) with far deeper micronutrient rows. <code>DEMO_KEY</code> works but throttles hard.</p>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-h">Data<i class="rule"></i></div>
+      <div class="panel-b">
+        <div id="stats" style="margin-bottom:12px"></div>
+        <div class="btnrow" style="margin-bottom:8px">
+          <button class="btn sec" id="export">Export JSON</button>
+          <button class="btn sec" id="importbtn">Import JSON</button>
+        </div>
+        <input type="file" id="importfile" accept="application/json" style="display:none">
+        <button class="btn dgr" id="wipe">Erase everything</button>
+        <p class="hint" style="margin:12px 0 0">Everything lives in IndexedDB on this device. Every record carries <code>id</code> + <code>updatedAt</code> + <code>dirty</code>, so a Supabase adapter can sync later without touching the UI. Export regularly — iOS evicts storage for web apps you haven't opened in a while, though installed home-screen apps are exempt.</p>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-h">Attribution<i class="rule"></i></div>
+      <div class="panel-b"><p class="hint" style="margin:0">Product data from <b>Open Food Facts</b>, licensed ODbL. Whole-food data from <b>USDA FoodData Central</b>, public domain. Reference intakes from IOM/Health Canada DRI tables.</p></div>
+    </div>
+  </section>
+
+</main>
+
+<div class="scrim" id="scrim"></div>
+<div class="sheet" id="sheet"><div class="grab"></div><div class="sheet-in" id="sheetin"></div></div>
+<div class="toast" id="toast"></div>
+
+<script>
+/* =====================================================================
+   INTAKE — personal nutrient instrument
+   Local-first. Storage adapter seam at Store.* for future Supabase sync.
+   ===================================================================== */
+
+/* ---------- 1. NUTRIENT SCHEMA ------------------------------------- */
+// off  = Open Food Facts nutriments key (values arrive in GRAMS, scaled below)
+// fdc  = USDA FoodData Central nutrient number (already in the unit we want)
+// k    = multiplier applied to the OFF gram value to reach our unit
+const N = [
+  // --- macro ---
+  {id:'kcal',     lbl:'Energy',            u:'kcal', g:'macro', off:'energy-kcal', k:1,    fdc:1008, dri:null},
+  {id:'protein',  lbl:'Protein',           u:'g',    g:'macro', off:'proteins',    k:1,    fdc:1003, dri:56},
+  {id:'carbs',    lbl:'Carbohydrate',      u:'g',    g:'macro', off:'carbohydrates',k:1,   fdc:1005, dri:130},
+  {id:'fiber',    lbl:'Fibre',             u:'g',    g:'macro', off:'fiber',       k:1,    fdc:1079, dri:38},
+  {id:'sugars',   lbl:'Sugars',            u:'g',    g:'macro', off:'sugars',      k:1,    fdc:2000, dri:null, cap:true},
+  {id:'fat',      lbl:'Total fat',         u:'g',    g:'macro', off:'fat',         k:1,    fdc:1004, dri:null},
+  {id:'water',    lbl:'Water',             u:'g',    g:'macro', off:null,          k:1,    fdc:1051, dri:3700},
+  // --- lipids ---
+  {id:'satfat',   lbl:'Saturated',         u:'g',    g:'lipid', off:'saturated-fat',k:1,   fdc:1258, dri:null, cap:true},
+  {id:'mufa',     lbl:'Monounsaturated',   u:'g',    g:'lipid', off:'monounsaturated-fat',k:1,fdc:1292,dri:null},
+  {id:'pufa',     lbl:'Polyunsaturated',   u:'g',    g:'lipid', off:'polyunsaturated-fat',k:1,fdc:1293,dri:null},
+  {id:'transfat', lbl:'Trans',             u:'g',    g:'lipid', off:'trans-fat',   k:1,    fdc:1257, dri:null, cap:true},
+  {id:'omega3',   lbl:'Omega-3 (ALA)',     u:'g',    g:'lipid', off:'omega-3-fat', k:1,    fdc:1404, dri:1.6},
+  {id:'omega6',   lbl:'Omega-6 (LA)',      u:'g',    g:'lipid', off:'omega-6-fat', k:1,    fdc:1316, dri:17},
+  {id:'chol',     lbl:'Cholesterol',       u:'mg',   g:'lipid', off:'cholesterol', k:1000, fdc:1253, dri:null, cap:true},
+  // --- vitamins ---
+  {id:'vita',     lbl:'Vitamin A',         u:'µg',   g:'vit', off:'vitamin-a',        k:1e6, fdc:1106, dri:900},
+  {id:'vitc',     lbl:'Vitamin C',         u:'mg',   g:'vit', off:'vitamin-c',        k:1000,fdc:1162, dri:90},
+  {id:'vitd',     lbl:'Vitamin D',         u:'µg',   g:'vit', off:'vitamin-d',        k:1e6, fdc:1114, dri:15},
+  {id:'vite',     lbl:'Vitamin E',         u:'mg',   g:'vit', off:'vitamin-e',        k:1000,fdc:1109, dri:15},
+  {id:'vitk',     lbl:'Vitamin K',         u:'µg',   g:'vit', off:'vitamin-k',        k:1e6, fdc:1185, dri:120},
+  {id:'b1',       lbl:'B1 Thiamin',        u:'mg',   g:'vit', off:'vitamin-b1',       k:1000,fdc:1165, dri:1.2},
+  {id:'b2',       lbl:'B2 Riboflavin',     u:'mg',   g:'vit', off:'vitamin-b2',       k:1000,fdc:1166, dri:1.3},
+  {id:'b3',       lbl:'B3 Niacin',         u:'mg',   g:'vit', off:'vitamin-pp',       k:1000,fdc:1167, dri:16},
+  {id:'b5',       lbl:'B5 Pantothenic',    u:'mg',   g:'vit', off:'pantothenic-acid', k:1000,fdc:1170, dri:5},
+  {id:'b6',       lbl:'B6 Pyridoxine',     u:'mg',   g:'vit', off:'vitamin-b6',       k:1000,fdc:1175, dri:1.3},
+  {id:'b7',       lbl:'B7 Biotin',         u:'µg',   g:'vit', off:'biotin',           k:1e6, fdc:1176, dri:30},
+  {id:'b9',       lbl:'B9 Folate',         u:'µg',   g:'vit', off:'vitamin-b9',       k:1e6, fdc:1177, dri:400},
+  {id:'b12',      lbl:'B12 Cobalamin',     u:'µg',   g:'vit', off:'vitamin-b12',      k:1e6, fdc:1178, dri:2.4},
+  {id:'choline',  lbl:'Choline',           u:'mg',   g:'vit', off:null,               k:1000,fdc:1180, dri:550},
+  // --- minerals ---
+  {id:'calcium',  lbl:'Calcium',           u:'mg',   g:'min', off:'calcium',    k:1000,fdc:1087, dri:1000},
+  {id:'iron',     lbl:'Iron',              u:'mg',   g:'min', off:'iron',       k:1000,fdc:1089, dri:8},
+  {id:'magnesium',lbl:'Magnesium',         u:'mg',   g:'min', off:'magnesium',  k:1000,fdc:1090, dri:400},
+  {id:'phosphorus',lbl:'Phosphorus',       u:'mg',   g:'min', off:'phosphorus', k:1000,fdc:1091, dri:700},
+  {id:'potassium',lbl:'Potassium',         u:'mg',   g:'min', off:'potassium',  k:1000,fdc:1092, dri:3400},
+  {id:'sodium',   lbl:'Sodium',            u:'mg',   g:'min', off:'sodium',     k:1000,fdc:1093, dri:1500, cap:true, ul:2300},
+  {id:'zinc',     lbl:'Zinc',              u:'mg',   g:'min', off:'zinc',       k:1000,fdc:1095, dri:11},
+  {id:'copper',   lbl:'Copper',            u:'mg',   g:'min', off:'copper',     k:1000,fdc:1098, dri:0.9},
+  {id:'manganese',lbl:'Manganese',         u:'mg',   g:'min', off:'manganese',  k:1000,fdc:1101, dri:2.3},
+  {id:'selenium', lbl:'Selenium',          u:'µg',   g:'min', off:'selenium',   k:1e6, fdc:1103, dri:55},
+  {id:'iodine',   lbl:'Iodine',            u:'µg',   g:'min', off:'iodine',     k:1e6, fdc:1100, dri:150},
+  {id:'chromium', lbl:'Chromium',          u:'µg',   g:'min', off:'chromium',   k:1e6, fdc:1096, dri:35},
+  {id:'molybdenum',lbl:'Molybdenum',       u:'µg',   g:'min', off:'molybdenum', k:1e6, fdc:1102, dri:45},
+  // --- other ---
+  {id:'caffeine', lbl:'Caffeine',          u:'mg',   g:'other', off:'caffeine', k:1000,fdc:1057, dri:null, cap:true, ul:400},
+  {id:'alcohol',  lbl:'Alcohol',           u:'g',    g:'other', off:'alcohol',  k:1,   fdc:1018, dri:null, cap:true},
+];
+const NBY = Object.fromEntries(N.map(n=>[n.id,n]));
+const GROUPS = [
+  ['macro','Macronutrients'],['lipid','Lipids'],
+  ['vit','Vitamins'],['min','Minerals'],['other','Other'],
+];
+const MEALS = ['Breakfast','Lunch','Dinner','Snacks'];
+
+/* ---------- 2. STORAGE LAYER --------------------------------------- */
+/* Adapter seam. IDB is the local driver; a Supabase driver implementing
+   the same four methods can be swapped in at Store.driver without any
+   change to callers. Records carry id/updatedAt/dirty for later sync.  */
+const IDB = (()=>{
+  const NAME='intake', VER=1, STORES=['foods','entries','meta'];
+  let dbp=null;
+  function open(){
+    if(dbp) return dbp;
+    dbp = new Promise((res,rej)=>{
+      let rq;
+      try{ rq = indexedDB.open(NAME,VER); }catch(e){ return rej(e); }
+      rq.onupgradeneeded = ()=>{
+        const db=rq.result;
+        STORES.forEach(s=>{ if(!db.objectStoreNames.contains(s)) db.createObjectStore(s,{keyPath:'id'}); });
+      };
+      rq.onsuccess=()=>res(rq.result);
+      rq.onerror=()=>rej(rq.error);
+      rq.onblocked=()=>rej(new Error('blocked'));
+    });
+    return dbp;
+  }
+  const tx=async(s,mode,fn)=>{
+    const db=await open();
+    return new Promise((res,rej)=>{
+      const t=db.transaction(s,mode), st=t.objectStore(s);
+      let out; try{ out=fn(st); }catch(e){ return rej(e); }
+      t.oncomplete=()=>res(out&&out.result!==undefined?out.result:out);
+      t.onerror=()=>rej(t.error);
+    });
+  };
+  return {
+    name:'idb',
+    async all(s){ return tx(s,'readonly',st=>st.getAll()); },
+    async put(s,rec){ return tx(s,'readwrite',st=>st.put(rec)); },
+    async del(s,id){ return tx(s,'readwrite',st=>st.delete(id)); },
+    async clear(s){ return tx(s,'readwrite',st=>st.clear()); },
+    async probe(){ await open(); await tx('meta','readwrite',st=>st.put({id:'__probe',t:Date.now()})); await tx('meta','readwrite',st=>st.delete('__probe')); return true; }
+  };
+})();
+
+const MEM = (()=>{ // fallback: sandboxed previews, private modes, IDB failures
+  const d={foods:new Map(),entries:new Map(),meta:new Map()};
+  return {
+    name:'memory',
+    async all(s){ return [...d[s].values()]; },
+    async put(s,r){ d[s].set(r.id,r); },
+    async del(s,id){ d[s].delete(id); },
+    async clear(s){ d[s].clear(); },
+    async probe(){ return true; }
+  };
+})();
+
+const Store = {
+  driver: MEM,
+  async init(){
+    try{ await IDB.probe(); this.driver=IDB; }
+    catch(e){ this.driver=MEM; console.warn('IndexedDB unavailable, using memory:',e&&e.message); }
+    return this.driver.name;
+  },
+  stamp(r){ r.updatedAt=new Date().toISOString(); r.dirty=true; return r; },
+  all(s){ return this.driver.all(s); },
+  put(s,r){ return this.driver.put(s,this.stamp(r)); },
+  del(s,id){ return this.driver.del(s,id); },
+  clear(s){ return this.driver.clear(s); },
+};
+const uid=()=>(crypto.randomUUID?crypto.randomUUID():'x'+Date.now()+Math.random().toString(36).slice(2));
+
+/* ---------- 3. APP STATE ------------------------------------------- */
+const App = {
+  date: todayISO(),
+  foods: new Map(),   // id -> food
+  entries: [],        // all entries
+  cfg: null,
+  pending: null,      // food awaiting portion confirmation
+};
+function todayISO(d){ const x=d||new Date(); return new Date(x.getTime()-x.getTimezoneOffset()*6e4).toISOString().slice(0,10); }
+function defaultCfg(){
+  const t={kcal:2600,protein:170,carbs:280,fat:80};
+  N.forEach(n=>{ if(n.dri!=null) t[n.id]=n.dri; });
+  t.protein=170; t.carbs=280; t.fat=80; t.kcal=2600;
+  return {id:'cfg', targets:t, usdaKey:'', fontScale:1};
+}
+
+/* ---------- 4. REMOTE ADAPTERS -------------------------------------- */
+const UA='Intake/1.0 (personal nutrient tracker)';
+function blank(){ return {}; }
+
+// -- Open Food Facts --------------------------------------------------
+function offToPer100(p){
+  const nut=p.nutriments||{}, out=blank();
+  N.forEach(n=>{
+    if(!n.off) return;
+    let v = nut[n.off+'_100g'];
+    if(v===undefined||v===null||v==='') return;
+    v=parseFloat(v); if(!isFinite(v)) return;
+    out[n.id]= n.id==='kcal' ? v : v*n.k;
+  });
+  // energy fallback when only kJ present
+  if(out.kcal===undefined && nut['energy_100g']!==undefined){
+    const kj=parseFloat(nut['energy_100g']); if(isFinite(kj)) out.kcal=kj/4.184;
+  }
+  // salt -> sodium when sodium missing
+  if(out.sodium===undefined && nut['salt_100g']!==undefined){
+    const s=parseFloat(nut['salt_100g']); if(isFinite(s)) out.sodium=s*400;
+  }
+  return out;
+}
+function offToFood(p){
+  const name=p.product_name_fr||p.product_name||p.generic_name||('Barcode '+p.code);
+  const servG=parseFloat(p.serving_quantity);
+  return {
+    id:uid(), source:'off', code:p.code||'',
+    name:name.trim(), brand:(p.brands||'').split(',')[0].trim(),
+    per100:offToPer100(p),
+    servings: isFinite(servG)&&servG>0 ? [{label:p.serving_size||'1 serving',grams:servG}] : [],
+  };
+}
+const OFF = {
+  async barcode(code){
+    const u=`https://world.openfoodfacts.org/api/v2/product/${encodeURIComponent(code)}.json`;
+    const r=await fetch(u,{headers:{'Accept':'application/json'}});
+    if(!r.ok) throw new Error('OFF '+r.status);
+    const j=await r.json();
+    if(j.status!==1 || !j.product) throw new Error('Barcode not in Open Food Facts');
+    return offToFood(j.product);
+  },
+  async search(q){
+    const fields='code,product_name,product_name_fr,generic_name,brands,serving_size,serving_quantity,nutriments';
+    const u=`https://world.openfoodfacts.org/cgi/search.pl?search_terms=${encodeURIComponent(q)}`+
+            `&search_simple=1&action=process&json=1&page_size=14&fields=${fields}`;
+    const r=await fetch(u,{headers:{'Accept':'application/json'}});
+    if(r.status===429) throw new Error('Open Food Facts rate limit — wait a minute');
+    if(!r.ok) throw new Error('OFF '+r.status);
+    const j=await r.json();
+    return (j.products||[]).filter(p=>p.product_name||p.product_name_fr).map(offToFood);
+  }
+};
+
+// -- USDA FoodData Central --------------------------------------------
+function fdcToFood(f){
+  const per100=blank(), map={};
+  N.forEach(n=>{ if(n.fdc) map[n.fdc]=n.id; });
+  (f.foodNutrients||[]).forEach(fn=>{
+    const num = fn.nutrientNumber || (fn.nutrient&&fn.nutrient.number);
+    const val = fn.value!==undefined ? fn.value : fn.amount;
+    const id = map[parseInt(num,10)];
+    if(id && val!==undefined && val!==null && isFinite(val)) per100[id]=+val;
+  });
+  const servs=[];
+  if(f.servingSize && f.servingSizeUnit && /^g$/i.test(f.servingSizeUnit)){
+    const g=parseFloat(f.servingSize);
+    if(isFinite(g)&&g>0) servs.push({label:(f.householdServingFullText||f.servingSize+' g'),grams:g});
+  }
+  return {
+    id:uid(), source:'usda', code:String(f.gtinUpc||f.fdcId||''),
+    name:(f.description||'Unnamed').toLowerCase().replace(/\b\w/g,c=>c.toUpperCase()),
+    brand:f.brandOwner||f.brandName||f.foodCategory||'USDA',
+    per100, servings:servs,
+  };
+}
+// GTINs come in 8/12/13/14 digits for the same product — normalise before comparing
+const gtin14 = c => String(c||'').replace(/\D/g,'').padStart(14,'0');
+const USDA = {
+  async search(q,key){
+    const k=(key||'DEMO_KEY').trim();
+    const u=`https://api.nal.usda.gov/fdc/v1/foods/search?api_key=${encodeURIComponent(k)}`+
+            `&query=${encodeURIComponent(q)}&pageSize=10&dataType=Foundation,SR%20Legacy`;
+    const r=await fetch(u);
+    if(r.status===403) throw new Error('USDA key rejected');
+    if(r.status===429) throw new Error('USDA rate limit — add your own key in Config');
+    if(!r.ok) throw new Error('USDA '+r.status);
+    const j=await r.json();
+    return (j.foods||[]).map(fdcToFood);
+  },
+  // No barcode endpoint exists — query the code as a search term against the
+  // Branded dataset, then verify gtinUpc exactly. Without that check the API
+  // happily returns loosely-matching products, which would be worse than nothing.
+  async barcode(code,key){
+    const k=(key||'DEMO_KEY').trim();
+    const want=gtin14(code);
+    const u=`https://api.nal.usda.gov/fdc/v1/foods/search?api_key=${encodeURIComponent(k)}`+
+            `&query=${encodeURIComponent(code)}&pageSize=25&dataType=Branded`;
+    const r=await fetch(u);
+    if(!r.ok) throw new Error('USDA '+r.status);
+    const j=await r.json();
+    const hit=(j.foods||[]).find(f=>f.gtinUpc && gtin14(f.gtinUpc)===want);
+    if(!hit) throw new Error('not in USDA Branded');
+    return fdcToFood(hit);
+  }
+};
+
+/* ---------- 5. COMPUTE ---------------------------------------------- */
+function dayEntries(date){ return App.entries.filter(e=>e.date===date); }
+function totals(date){
+  const t=blank(), seen=blank();
+  dayEntries(date).forEach(e=>{
+    const f=App.foods.get(e.foodId); if(!f) return;
+    const mult=e.grams/100;
+    N.forEach(n=>{
+      const v=f.per100[n.id];
+      if(v===undefined||v===null) return;
+      t[n.id]=(t[n.id]||0)+v*mult;
+      seen[n.id]=(seen[n.id]||0)+1;
+    });
+  });
+  return {t,seen};
+}
+function statusOf(n,val,target){
+  if(!target) return 'none';
+  const p=val/target;
+  if(n.cap){ // lower is better
+    const ul=n.ul||target;
+    if(val>ul*1.25) return 'excess';
+    if(val>ul) return 'high';
+    return 'optimal';
+  }
+  if(p<0.5) return 'deficient';
+  if(p<0.9) return 'low';
+  if(p<=1.6) return 'optimal';
+  if(p<=3) return 'high';
+  return 'excess';
+}
+const STATUS_COLOR={deficient:'var(--deficient)',low:'var(--low)',optimal:'var(--optimal)',high:'var(--high)',excess:'var(--excess)',none:'var(--line-hot)'};
+function fmt(v,u){
+  if(v===undefined||v===null||!isFinite(v)) return '—';
+  if(u==='kcal') return Math.round(v).toString();
+  if(v>=100) return Math.round(v).toString();
+  if(v>=10) return v.toFixed(1);
+  if(v>=1) return v.toFixed(1);
+  if(v>=0.1) return v.toFixed(2);
+  if(v>0) return v.toFixed(3);
+  return '0';
+}
+
+/* ---------- 6. RENDER ----------------------------------------------- */
+const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
+
+function renderDate(){
+  const d=new Date(App.date+'T12:00:00');
+  const isToday=App.date===todayISO();
+  $('#dlabel').textContent = isToday ? 'Today' :
+    d.toLocaleDateString('en-CA',{weekday:'long',month:'short',day:'numeric'});
+  $('#dsub').textContent = App.date.toUpperCase();
+  $('#dnext').style.opacity = App.date>=todayISO() ? .3 : 1;
+}
+
+function renderEnergy(){
+  const {t}=totals(App.date), tg=App.cfg.targets;
+  const kcal=t.kcal||0, pct=tg.kcal? kcal/tg.kcal : 0;
+  const C=2*Math.PI*37;
+  const arc=$('#ringarc');
+  arc.setAttribute('stroke-dasharray',C.toFixed(1));
+  arc.setAttribute('stroke-dashoffset',(C*(1-Math.min(pct,1))).toFixed(1));
+  arc.setAttribute('stroke', pct>1.15?'var(--excess)': pct>1?'var(--high)': pct>=.85?'var(--optimal)':'var(--amber)');
+  $('#rkcal').textContent=Math.round(kcal);
+  const left=Math.round((tg.kcal||0)-kcal);
+  $('#ebal').textContent = left>=0 ? left+' left' : Math.abs(left)+' over';
+
+  const rows=[['protein','PRO'],['carbs','CHO'],['fat','FAT'],['fiber','FIB']];
+  $('#macros').innerHTML=rows.map(([id,k])=>{
+    const v=t[id]||0, target=tg[id]||0, p=target?Math.min(v/target,1):0;
+    const st=statusOf(NBY[id],v,target);
+    return `<div class="macro">
+      <span class="k">${k}</span>
+      <span class="track"><i style="width:${(p*100).toFixed(1)}%;background:${STATUS_COLOR[st]}"></i></span>
+      <span class="v"><b>${fmt(v,'g')}</b>/${target}g</span>
+    </div>`;
+  }).join('');
+}
+
+function renderMeals(){
+  const es=dayEntries(App.date);
+  const html=MEALS.map(m=>{
+    const rows=es.filter(e=>e.meal===m);
+    const kc=rows.reduce((a,e)=>{
+      const f=App.foods.get(e.foodId);
+      return a+((f&&f.per100.kcal||0)*e.grams/100);
+    },0);
+    return `<div class="meal">
+      <div class="meal-h">${m}<i class="rule"></i><em>${Math.round(kc)} kcal</em></div>
+      ${rows.length? rows.map(e=>{
+        const f=App.foods.get(e.foodId)||{name:'(deleted)',per100:{},brand:''};
+        const k=(f.per100.kcal||0)*e.grams/100;
+        return `<div class="entry">
+          <div class="nm"><b>${esc(f.name)}</b><span>${e.grams} g${f.brand?' · '+esc(f.brand):''}</span></div>
+          <div class="kc">${Math.round(k)}</div>
+          <button class="x" data-del="${e.id}">&times;</button>
+        </div>`;
+      }).join('') : ''}
+      <button class="addbtn" data-meal="${m}">+ ADD TO ${m.toUpperCase()}</button>
+    </div>`;
+  }).join('');
+  $('#mealpanel').innerHTML=html;
+}
+
+function renderNutrients(){
+  const {t,seen}=totals(App.date), tg=App.cfg.targets;
+  const nEnt=dayEntries(App.date).length;
+  $('#nutmeta').textContent = nEnt+' item'+(nEnt===1?'':'s');
+  $('#nuttable').innerHTML = GROUPS.map(([g,label])=>{
+    const list=N.filter(n=>n.g===g && n.id!=='kcal');
+    return `<div class="grp"><div class="grp-h">${label}<i class="rule"></i></div>` +
+    list.map(n=>{
+      const v=t[n.id], target=tg[n.id];
+      const has=v!==undefined;
+      const st=has?statusOf(n,v,target):'none';
+      const p=(has&&target)?Math.min(v/(n.cap?(n.ul||target):target),1):0;
+      const pctTxt=(has&&target)?Math.round(v/target*100)+'%':'';
+      const cover=seen[n.id]||0;
+      const total=nEnt;
+      const sparse = total>0 && cover<total;
+      return `<div class="nut${has?'':' sparse'}">
+        <div class="lbl">${n.lbl}${sparse&&has?`<s>${cover}/${total}</s>`:''}</div>
+        <div class="bar">
+          ${pctTxt?`<span class="pct">${pctTxt}</span>`:''}
+          <span class="track"><i style="width:${(p*100).toFixed(1)}%;background:${STATUS_COLOR[st]}"></i></span>
+        </div>
+        <div class="amt"><b>${fmt(v,n.u)}</b>${n.u==='kcal'?'':' '+n.u}</div>
+      </div>`;
+    }).join('') + `</div>`;
+  }).join('') + `<div class="legend">
+    <span><i style="background:var(--deficient)"></i>&lt;50%</span>
+    <span><i style="background:var(--low)"></i>50–90%</span>
+    <span><i style="background:var(--optimal)"></i>on target</span>
+    <span><i style="background:var(--high)"></i>high</span>
+    <span><i style="background:var(--excess)"></i>excess</span>
+    <span style="color:var(--low)">n/n = how many items reported it</span>
+  </div>`;
+}
+
+function renderToday(){ renderDate(); renderEnergy(); renderMeals(); renderNutrients(); }
+
+function renderFoods(filter){
+  const q=(filter||'').toLowerCase().trim();
+  let list=[...App.foods.values()];
+  if(q) list=list.filter(f=>(f.name+' '+f.brand).toLowerCase().includes(q));
+  list.sort((a,b)=>a.name.localeCompare(b.name));
+  if(!list.length){
+    $('#foodlist').innerHTML=`<div class="empty"><p>No foods cached yet.</p><p class="hint">Anything you look up gets stored here permanently — after a few weeks this covers almost everything you eat, and lookups stop hitting the network.</p></div>`;
+    return;
+  }
+  $('#foodlist').innerHTML=list.map(f=>{
+    const filled=N.filter(n=>f.per100[n.id]!==undefined).length;
+    return `<div class="res" data-food="${f.id}">
+      <div class="nm"><b>${esc(f.name)}</b><span>${esc(f.brand||'—')} · ${Math.round(f.per100.kcal||0)} kcal/100g · ${filled}/${N.length} nutrients</span></div>
+      <span class="tag ${f.source}">${f.source}</span>
+    </div>`;
+  }).join('');
+}
+
+function renderConfig(){
+  const t=App.cfg.targets;
+  ['kcal','protein','carbs','fat','fiber'].forEach(k=>{ const el=$('#t-'+k); if(el) el.value=t[k]??''; });
+  $('#usdakey').value=App.cfg.usdaKey||'';
+  const fs=App.cfg.fontScale||1;
+  $$('#fschips .chip').forEach(c=>c.setAttribute('aria-pressed', Math.abs(parseFloat(c.dataset.fs)-fs)<0.001));
+  $('#microtargets').innerHTML = N.filter(n=>n.dri!=null && !['protein','carbs','fat','fiber','kcal'].includes(n.id))
+    .map(n=>`<div class="fld" style="display:grid;grid-template-columns:1fr 96px;gap:9px;align-items:center;margin-bottom:7px">
+      <label style="margin:0">${n.lbl} <span style="color:var(--ink-faint)">(${n.u})</span></label>
+      <input type="number" step="any" data-target="${n.id}" value="${t[n.id]??''}">
+    </div>`).join('');
+  const days=new Set(App.entries.map(e=>e.date)).size;
+  $('#stats').innerHTML=`
+    <div class="kv"><span>Storage driver</span><b>${Store.driver.name}</b></div>
+    <div class="kv"><span>Cached foods</span><b>${App.foods.size}</b></div>
+    <div class="kv"><span>Logged entries</span><b>${App.entries.length}</b></div>
+    <div class="kv"><span>Days with data</span><b>${days}</b></div>`;
+}
+
+const esc=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+
+/* ---------- 7. SHEET (portion picker) -------------------------------- */
+let sheetMeal='Breakfast';
+function openSheet(html){ $('#sheetin').innerHTML=html; $('#sheet').classList.add('on'); $('#scrim').classList.add('on'); }
+function closeSheet(){ $('#sheet').classList.remove('on'); $('#scrim').classList.remove('on'); }
+$('#scrim').addEventListener('click',closeSheet);
+
+function portionSheet(food){
+  App.pending=food;
+  const filled=N.filter(n=>food.per100[n.id]!==undefined).length;
+  const presets=[...(food.servings||[]),{label:'100 g',grams:100},{label:'50 g',grams:50},{label:'150 g',grams:150},{label:'200 g',grams:200}];
+  const g0=(food.servings&&food.servings[0])?food.servings[0].grams:100;
+  openSheet(`
+    <div style="margin-bottom:14px">
+      <div style="font-size:19px;font-weight:600;line-height:1.25">${esc(food.name)}</div>
+      <div class="hint" style="margin-top:3px">${esc(food.brand||'—')} · <span class="tag ${food.source}">${food.source}</span> · ${filled}/${N.length} nutrients populated</div>
+    </div>
+    <div class="fld"><label>Meal</label>
+      <div class="chips" id="mealchips">${MEALS.map(m=>`<button class="chip" aria-pressed="${m===sheetMeal}" data-m="${m}">${m}</button>`).join('')}</div>
+    </div>
+    <div class="fld"><label>Portion presets</label>
+      <div class="chips" id="gchips">${presets.map(p=>`<button class="chip" data-g="${p.grams}">${esc(p.label)}</button>`).join('')}</div>
+    </div>
+    <div class="fld"><label>Grams</label><input id="pg" type="number" value="${g0}" inputmode="decimal"></div>
+    <div class="panel" style="margin:0 0 13px"><div class="panel-b" id="preview"></div></div>
+    <button class="btn pri" id="padd">Log it</button>
+    <button class="btn sec" id="pcancel" style="margin-top:8px">Cancel</button>
+  `);
+  const upd=()=>{
+    const g=parseFloat($('#pg').value)||0, m=g/100;
+    const show=['kcal','protein','carbs','fat','fiber','sodium'];
+    $('#preview').innerHTML=show.map(id=>{
+      const n=NBY[id], v=food.per100[id];
+      return `<div class="kv"><span>${n.lbl}</span><b>${v===undefined?'—':fmt(v*m,n.u)+(n.u==='kcal'?' kcal':' '+n.u)}</b></div>`;
+    }).join('');
+  };
+  upd();
+  $('#pg').addEventListener('input',upd);
+  $('#gchips').addEventListener('click',e=>{
+    const b=e.target.closest('[data-g]'); if(!b) return;
+    $('#pg').value=b.dataset.g; upd();
+  });
+  $('#mealchips').addEventListener('click',e=>{
+    const b=e.target.closest('[data-m]'); if(!b) return;
+    sheetMeal=b.dataset.m;
+    $$('#mealchips .chip').forEach(c=>c.setAttribute('aria-pressed',c.dataset.m===sheetMeal));
+  });
+  $('#pcancel').addEventListener('click',closeSheet);
+  $('#padd').addEventListener('click',async()=>{
+    const g=parseFloat($('#pg').value);
+    if(!g||g<=0) return toast('Enter a portion in grams',true);
+    let existing=[...App.foods.values()].find(f=>f.source===food.source && f.code && f.code===food.code);
+    let fid;
+    if(existing){ fid=existing.id; }
+    else { await Store.put('foods',food); App.foods.set(food.id,food); fid=food.id; }
+    const ent={id:uid(),date:App.date,foodId:fid,grams:g,meal:sheetMeal,createdAt:new Date().toISOString()};
+    await Store.put('entries',ent); App.entries.push(ent);
+    closeSheet(); go('today'); renderToday();
+    toast(Math.round((food.per100.kcal||0)*g/100)+' kcal → '+sheetMeal);
+  });
+}
+
+/* ---------- 8. TOAST -------------------------------------------------- */
+let tt;
+function toast(msg,isErr){
+  const el=$('#toast'); el.textContent=msg;
+  el.classList.toggle('err',!!isErr); el.classList.add('on');
+  clearTimeout(tt); tt=setTimeout(()=>el.classList.remove('on'),2600);
+}
+
+/* ---------- 9. NAV ---------------------------------------------------- */
+function go(v){
+  $$('.view').forEach(s=>s.classList.toggle('on',s.id==='v-'+v));
+  $$('nav.tabs button').forEach(b=>b.setAttribute('aria-selected',b.dataset.view===v));
+  if(v==='foods') renderFoods($('#fq').value);
+  if(v==='conf') renderConfig();
+  if(v==='today') renderToday();
+  window.scrollTo(0,0);
+}
+$$('nav.tabs button').forEach(b=>b.addEventListener('click',()=>go(b.dataset.view)));
+$$('.seg button').forEach(b=>b.addEventListener('click',()=>{
+  $$('.seg button').forEach(x=>x.setAttribute('aria-selected',x===b));
+  $$('.pane').forEach(p=>p.classList.toggle('on',p.id==='p-'+b.dataset.pane));
+  if(b.dataset.pane!=='scan') stopScan();
+}));
+
+$('#dprev').addEventListener('click',()=>{ App.date=shift(App.date,-1); renderToday(); });
+$('#dnext').addEventListener('click',()=>{ if(App.date<todayISO()){ App.date=shift(App.date,1); renderToday(); } });
+function shift(iso,d){ const x=new Date(iso+'T12:00:00'); x.setDate(x.getDate()+d); return todayISO(x); }
+
+$('#mealpanel').addEventListener('click',async e=>{
+  const del=e.target.closest('[data-del]');
+  if(del){
+    const id=del.dataset.del;
+    await Store.del('entries',id);
+    App.entries=App.entries.filter(x=>x.id!==id);
+    renderToday(); toast('Removed'); return;
+  }
+  const add=e.target.closest('[data-meal]');
+  if(add){ sheetMeal=add.dataset.meal; go('add'); $('#q').focus(); }
+});
+
+/* ---------- 10. SEARCH ------------------------------------------------ */
+let searchTimer, searchSeq=0;
+function localMatches(q){
+  const s=q.toLowerCase();
+  return [...App.foods.values()].filter(f=>(f.name+' '+f.brand).toLowerCase().includes(s)).slice(0,8);
+}
+function paintResults(groups){
+  const box=$('#results');
+  const any=groups.some(g=>g.items.length);
+  if(!any && !groups.some(g=>g.loading)){
+    box.style.display='block';
+    box.innerHTML=`<div class="empty"><p>Nothing found.</p><p class="hint">Try the English name, or add it by hand under Manual.</p></div>`;
+    return;
+  }
+  box.style.display='block';
+  box.innerHTML=groups.map(g=>`
+    <div class="grp-h" style="padding:11px 12px 6px">${g.title}<i class="rule"></i>${g.loading?'<span class="spin"></span>':(g.err?`<span style="color:var(--deficient);font-size:9px">${esc(g.err)}</span>`:'')}</div>
+    ${g.items.map(f=>`<div class="res" data-r="${f.__k}">
+        <div class="nm"><b>${esc(f.name)}</b><span>${esc(f.brand||'—')} · ${Math.round(f.per100.kcal||0)} kcal/100g</span></div>
+        <span class="tag ${g.tag}">${g.tag}</span>
+      </div>`).join('')}
+  `).join('');
+}
+const RBUF=new Map();
+function bufferise(items){ items.forEach(f=>{ f.__k=uid(); RBUF.set(f.__k,f); }); return items; }
+
+$('#q').addEventListener('input',()=>{
+  const q=$('#q').value.trim();
+  clearTimeout(searchTimer);
+  if(q.length<2){ $('#results').style.display='none'; return; }
+  const seq=++searchSeq;
+  const cached=bufferise(localMatches(q));
+  paintResults([
+    {title:'Your library',tag:'cache',items:cached},
+    {title:'Open Food Facts',tag:'off',items:[],loading:true},
+    {title:'USDA',tag:'usda',items:[],loading:true},
+  ]);
+  searchTimer=setTimeout(async()=>{
+    const groups=[
+      {title:'Your library',tag:'cache',items:cached},
+      {title:'Open Food Facts',tag:'off',items:[],loading:true},
+      {title:'USDA',tag:'usda',items:[],loading:true},
+    ];
+    const done=()=>{ if(seq===searchSeq) paintResults(groups); };
+    OFF.search(q).then(r=>{ groups[1].items=bufferise(r); groups[1].loading=false; })
+      .catch(e=>{ groups[1].loading=false; groups[1].err=e.message; }).finally(done);
+    USDA.search(q,App.cfg.usdaKey).then(r=>{ groups[2].items=bufferise(r); groups[2].loading=false; })
+      .catch(e=>{ groups[2].loading=false; groups[2].err=e.message; }).finally(done);
+  },700);
+});
+$('#results').addEventListener('click',e=>{
+  const r=e.target.closest('[data-r]'); if(!r) return;
+  const f=RBUF.get(r.dataset.r); if(f) portionSheet(f);
+});
+$('#foodlist').addEventListener('click',e=>{
+  const r=e.target.closest('[data-food]'); if(!r) return;
+  const f=App.foods.get(r.dataset.food); if(f) portionSheet(f);
+});
+$('#fq').addEventListener('input',()=>renderFoods($('#fq').value));
+
+/* ---------- 11. BARCODE ------------------------------------------------ */
+let stream=null, scanLoop=null, zxReader=null;
+// Barcode resolution chain: local cache → Open Food Facts → USDA Branded.
+// OFF goes first: better Canadian coverage and a real barcode endpoint.
+async function lookupBarcode(code){
+  const clean=String(code).replace(/\D/g,'');
+  const local=[...App.foods.values()].find(f=>f.code && gtin14(f.code)===gtin14(clean));
+  if(local){ toast('From your library'); portionSheet(local); return; }
+
+  toast('Looking up '+clean+'…');
+  try{ portionSheet(await OFF.barcode(clean)); return; }
+  catch(e1){
+    try{
+      const f=await USDA.barcode(clean,App.cfg.usdaKey);
+      toast('Found in USDA Branded');
+      portionSheet(f); return;
+    }catch(e2){
+      toast('Barcode '+clean+' in neither database — add it under Manual',true);
+    }
+  }
+}
+// GS1 Digital Link QR codes encode the GTIN in the URL path as /01/{gtin}
+function codeFromScan(raw){
+  const s=String(raw||'').trim();
+  const dl=s.match(/\/01\/(\d{8,14})/);
+  if(dl) return dl[1];
+  const digits=s.replace(/\D/g,'');
+  return digits.length>=8 ? digits : null;
+}
+$('#bgo').addEventListener('click',()=>{
+  const c=$('#bcode').value.replace(/\D/g,'');
+  if(c.length<6) return toast('Enter a full barcode',true);
+  lookupBarcode(c);
+});
+function loadZX(){
+  return new Promise((res,rej)=>{
+    if(window.ZXing) return res();
+    const s=document.createElement('script');
+    s.src='https://cdnjs.cloudflare.com/ajax/libs/zxing-library/0.21.3/index.min.js';
+    s.onload=()=>res(); s.onerror=()=>rej(new Error('ZXing failed to load'));
+    document.head.appendChild(s);
+  });
+}
+async function startScan(){
+  const vid=$('#scanvid');
+  try{
+    stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:'environment'},width:{ideal:1280}}});
+  }catch(e){ return toast('Camera denied or unavailable',true); }
+  vid.srcObject=stream; await vid.play().catch(()=>{});
+  $('#scanidle').style.display='none'; $('#scanwrap').style.display='block';
+  $('#scanctl').innerHTML='<button class="btn sec" id="scanstop">Stop camera</button>';
+  $('#scanstop').addEventListener('click',stopScan);
+
+  const hit=raw=>{ const c=codeFromScan(raw); if(!c) return; stopScan(); lookupBarcode(c); };
+  if('BarcodeDetector' in window){
+    try{
+      const det=new window.BarcodeDetector({formats:['ean_13','ean_8','upc_a','upc_e','code_128','qr_code']});
+      scanLoop=setInterval(async()=>{
+        try{ const b=await det.detect(vid); if(b&&b.length) hit(b[0].rawValue); }catch(_){}
+      },320);
+      return;
+    }catch(_){}
+  }
+  try{
+    await loadZX();
+    zxReader=new window.ZXing.BrowserMultiFormatReader();
+    zxReader.decodeFromVideoElement(vid,(result,err)=>{ if(result) hit(result.getText()); });
+  }catch(e){ toast('Scanner unavailable — type the barcode below',true); }
+}
+function stopScan(){
+  if(scanLoop){ clearInterval(scanLoop); scanLoop=null; }
+  if(zxReader){ try{zxReader.reset();}catch(_){} zxReader=null; }
+  if(stream){ stream.getTracks().forEach(t=>t.stop()); stream=null; }
+  const w=$('#scanwrap'); if(w) w.style.display='none';
+  const i=$('#scanidle'); if(i) i.style.display='block';
+  const c=$('#scanctl'); if(c) c.innerHTML='';
+}
+$('#scanstart').addEventListener('click',startScan);
+
+/* ---------- 12. MANUAL FOOD -------------------------------------------- */
+$('#m-fields').innerHTML = GROUPS.map(([g,label])=>{
+  const list=N.filter(n=>n.g===g);
+  return `<div class="grp-h" style="padding:13px 0 7px">${label}<i class="rule"></i></div>
+  <div class="two">${list.map(n=>`
+    <div class="fld"><label>${n.lbl} (${n.u})</label>
+    <input type="number" step="any" data-n="${n.id}" placeholder="—"></div>`).join('')}</div>`;
+}).join('');
+
+$('#m-save').addEventListener('click',async()=>{
+  const name=$('#m-name').value.trim();
+  if(!name) return toast('Name it first',true);
+  const per100=blank();
+  $$('#m-fields [data-n]').forEach(i=>{
+    const v=parseFloat(i.value);
+    if(isFinite(v)) per100[i.dataset.n]=v;
+  });
+  if(!Object.keys(per100).length) return toast('Enter at least one value',true);
+  const serv=parseFloat($('#m-serv').value);
+  const f={id:uid(),source:'custom',code:'',name,brand:$('#m-brand').value.trim(),per100,
+           servings:isFinite(serv)&&serv>0?[{label:serv+' g serving',grams:serv}]:[]};
+  await Store.put('foods',f); App.foods.set(f.id,f);
+  $('#m-name').value=''; $('#m-brand').value=''; $('#m-serv').value='';
+  $$('#m-fields [data-n]').forEach(i=>i.value='');
+  toast('Saved to library');
+  portionSheet(f);
+});
+
+/* ---------- 13. CONFIG WIRING ------------------------------------------ */
+async function saveCfg(){ await Store.put('meta',App.cfg); }
+['kcal','protein','carbs','fat','fiber'].forEach(k=>{
+  const el=$('#t-'+k); if(!el) return;
+  el.addEventListener('change',()=>{ App.cfg.targets[k]=parseFloat(el.value)||0; saveCfg(); toast('Target updated'); });
+});
+$('#microtargets').addEventListener('change',e=>{
+  const i=e.target.closest('[data-target]'); if(!i) return;
+  const v=parseFloat(i.value);
+  App.cfg.targets[i.dataset.target]= isFinite(v)?v:null;
+  saveCfg(); toast('Target updated');
+});
+$('#resetdri').addEventListener('click',()=>{
+  N.forEach(n=>{ if(n.dri!=null) App.cfg.targets[n.id]=n.dri; });
+  saveCfg(); renderConfig(); toast('Reset to DRI (male 19–30)');
+});
+$('#usdakey').addEventListener('change',()=>{ App.cfg.usdaKey=$('#usdakey').value.trim(); saveCfg(); toast('USDA key saved'); });
+
+function applyFontScale(v){ document.documentElement.style.setProperty('--fs', v||1); }
+$('#fschips').addEventListener('click',e=>{
+  const b=e.target.closest('[data-fs]'); if(!b) return;
+  const v=parseFloat(b.dataset.fs);
+  App.cfg.fontScale=v; applyFontScale(v); saveCfg();
+  $$('#fschips .chip').forEach(c=>c.setAttribute('aria-pressed',c===b));
+  toast('Text size updated');
+});
+
+$('#export').addEventListener('click',async()=>{
+  const payload={app:'intake',version:1,exportedAt:new Date().toISOString(),
+    foods:[...App.foods.values()],entries:App.entries,config:App.cfg};
+  const blob=new Blob([JSON.stringify(payload,null,2)],{type:'application/json'});
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(blob);
+  a.download='intake-'+todayISO()+'.json';
+  a.click(); URL.revokeObjectURL(a.href);
+  toast('Exported');
+});
+$('#importbtn').addEventListener('click',()=>$('#importfile').click());
+$('#importfile').addEventListener('change',async e=>{
+  const file=e.target.files[0]; if(!file) return;
+  try{
+    const j=JSON.parse(await file.text());
+    if(j.app!=='intake') throw new Error('Not an Intake export');
+    for(const f of (j.foods||[])){ await Store.put('foods',f); App.foods.set(f.id,f); }
+    for(const en of (j.entries||[])){ await Store.put('entries',en); }
+    App.entries=await Store.all('entries');
+    if(j.config){ App.cfg={...App.cfg,...j.config,id:'cfg'}; await saveCfg(); }
+    renderConfig(); renderToday(); toast('Imported '+(j.entries||[]).length+' entries');
+  }catch(err){ toast(err.message,true); }
+  e.target.value='';
+});
+$('#wipe').addEventListener('click',async()=>{
+  if(!confirm('Erase all foods, entries and settings on this device? Export first if you want a copy.')) return;
+  await Store.clear('foods'); await Store.clear('entries'); await Store.clear('meta');
+  App.foods.clear(); App.entries=[]; App.cfg=defaultCfg(); await saveCfg();
+  renderToday(); renderConfig(); toast('Erased');
+});
+
+/* ---------- 14. BOOT ---------------------------------------------------- */
+(async function boot(){
+  const drv=await Store.init();
+  $('#netdot').textContent = drv==='idb' ? 'LOCAL · IDB' : 'MEMORY ONLY';
+  if(drv!=='idb') $('#netdot').style.color='var(--low)';
+
+  const meta=await Store.all('meta');
+  App.cfg = meta.find(m=>m.id==='cfg') || defaultCfg();
+  if(!meta.find(m=>m.id==='cfg')) await saveCfg();
+  // backfill any newly added nutrients
+  N.forEach(n=>{ if(n.dri!=null && App.cfg.targets[n.id]===undefined) App.cfg.targets[n.id]=n.dri; });
+  applyFontScale(App.cfg.fontScale||1);
+
+  (await Store.all('foods')).forEach(f=>App.foods.set(f.id,f));
+  App.entries=await Store.all('entries');
+
+  renderToday();
+
+  if('serviceWorker' in navigator && location.protocol==='https:'){
+    navigator.serviceWorker.register('sw.js').catch(()=>{});
+  }
+})();
+</script>
+</body>
+</html>
