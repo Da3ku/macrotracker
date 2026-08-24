@@ -1,6 +1,6 @@
 /* INTAKE service worker — app shell offline, network-first for APIs */
-const CACHE = 'intake-v1';
-const SHELL = ['./', './index.html', './manifest.webmanifest'];
+const CACHE = 'intake-v4';
+const SHELL = ['./', './index.html', './manifest.webmanifest', './seed-cronometer.json'];
 
 self.addEventListener('install', e => {
   e.waitUntil(caches.open(CACHE).then(c => c.addAll(SHELL)).then(() => self.skipWaiting()));
